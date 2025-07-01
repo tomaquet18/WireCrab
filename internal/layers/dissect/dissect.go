@@ -1,4 +1,4 @@
-package layers
+package dissect
 
 // Dissector defines the interface that each protocol dissector must implement
 type Dissector interface {

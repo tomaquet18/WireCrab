@@ -15,10 +15,10 @@ func Detect(payload []byte, srcPort, dstPort string) *ProtocolInfo {
 
 			if nested, ok := parsed.(map[string]any); ok {
 				if payload, ok := nested["payload"].([]byte); ok {
-					proto.child = Detect(payload, srcPort, dstPort)
+					proto.Child = Detect(payload, srcPort, dstPort)
 				}
-				if child, ok := nested["child"].(*ProtocolInfo); ok && proto.child == nil {
-					proto.child = child
+				if child, ok := nested["child"].(*ProtocolInfo); ok && proto.Child == nil {
+					proto.Child = child
 				}
 			}
 			return proto

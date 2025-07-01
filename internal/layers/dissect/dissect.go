@@ -11,5 +11,5 @@ type Dissector interface {
 type ProtocolInfo struct {
 	Name   string      // Protocol name (e.g, "http")
 	Detail interface{} // Map with extracted fields
-	child  *ProtocolInfo
+	Child  *ProtocolInfo
 }

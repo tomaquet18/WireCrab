@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -36,7 +37,12 @@ type pdmlField struct {
 }
 
 func ParseWithTshark(payload []byte) (*ProtocolInfo, error) {
-	cmd := exec.Command("C:\\Users\\2004a\\Downloads\\WiresharkPortable64\\App\\Wireshark\\tshark.exe", "-i", "-", "-T", "pdml")
+	tsharkBinary := "tshark"
+	if runtime.GOOS == "windows" {
+		tsharkBinary = "tshark.exe"
+	}
+	cmd := exec.Command(tsharkBinary, "-i", "-", "-T", "pdml")
+	fmt.Print(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

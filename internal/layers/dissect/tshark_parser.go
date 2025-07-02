@@ -14,7 +14,7 @@ import (
 )
 
 type pdml struct {
-	XMLName xml.Name     `xml:pdml`
+	XMLName xml.Name     `xml:"pdml"`
 	Packets []pdmlPacket `xml:"packet"`
 }
 

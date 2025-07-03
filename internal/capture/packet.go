@@ -1,9 +1,7 @@
 package capture
 
-import "time"
-
 type PacketInfo struct {
-	Timestamp time.Time
+	Timestamp string
 	SrcIP     string
 	DstIP     string
 	SrcPort   string

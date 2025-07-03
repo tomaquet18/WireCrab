@@ -53,7 +53,7 @@ func sniffInterfaceStream(cfg SnifferConfig, out chan<- PacketInfo) error {
 
 	for packet := range packetSource.Packets() {
 		info := PacketInfo{
-			Timestamp: packet.Metadata().Timestamp,
+			Timestamp: packet.Metadata().Timestamp.Format(time.RFC3339),
 			Length:    packet.Metadata().Length,
 			RawData:   packet.Data(),
 		}

@@ -1,8 +1,8 @@
 <script>
   import SelectDevice from './routes/SelectDevice.svelte'
-  import { writable } from 'svelte/store'
 
-  const selectedDevice = writable(null)
+  import { selectedDevice } from './stores/device'
+
   let currentView = 'select'
 
   function handleNext(event) {

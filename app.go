@@ -3,19 +3,22 @@ package main
 import (
 	"context"
 	"fmt"
+	"wirecrab/internal/capture"
 	"wirecrab/internal/devices"
 )
 
 // App struct
 type App struct {
-	ctx           context.Context
-	deviceService *devices.DeviceService
+	ctx            context.Context
+	deviceService  *devices.DeviceService
+	captureService *capture.CaptureService
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		deviceService: devices.New(),
+		deviceService:  devices.New(),
+		captureService: capture.NewCaptureService(),
 	}
 }
 
@@ -33,4 +36,19 @@ func (a *App) Greet(name string) string {
 // GetInterfaces returns a list of all interfaces
 func (a *App) GetDevices() ([]devices.Device, error) {
 	return a.deviceService.GetAvailableDevices()
+}
+
+// StartCapture starts sniffing packets
+func (a *App) StartCapture(device string) {
+	a.captureService.Start(device)
+}
+
+// GetCapturedPackets returns a list of captured packets
+func (a *App) GetCapturedPackets() []capture.CapturedPacket {
+	return a.captureService.GetPackets()
+}
+
+// ClearCapturedPackets clears the list of captured packets
+func (a *App) ClearCapturedPackets() {
+	a.captureService.Clear()
 }

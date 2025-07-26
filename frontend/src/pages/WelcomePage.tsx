@@ -4,6 +4,7 @@ import { GetDevices } from "../../wailsjs/go/main/App"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useInterfaceStore } from "@/stores/interfaces"
 
 interface Device {
   name: string
@@ -18,6 +19,8 @@ export default function WelcomePage() {
   const [selected, setSelected] = useState<Device | null>(null)
   const navigate = useNavigate()
 
+  const setSelectedInterface = useInterfaceStore((s) => s.setSelected)
+
   useEffect(() => {
     GetDevices()
       .then(setInterfaces)
@@ -27,7 +30,7 @@ export default function WelcomePage() {
 
   const handleContinue = () => {
     if (selected) {
-      localStorage.setItem("selectedInterface", selected.name)
+      setSelectedInterface(selected.name)
       navigate("/capture")
     }
   }

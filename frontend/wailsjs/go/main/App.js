@@ -6,12 +6,16 @@ export function ClearCapturedPackets() {
   return window['go']['main']['App']['ClearCapturedPackets']();
 }
 
-export function GetCapturedPackets() {
-  return window['go']['main']['App']['GetCapturedPackets']();
+export function GetCapturedPackets(arg1, arg2) {
+  return window['go']['main']['App']['GetCapturedPackets'](arg1, arg2);
 }
 
 export function GetDevices() {
   return window['go']['main']['App']['GetDevices']();
+}
+
+export function GetPacketCount() {
+  return window['go']['main']['App']['GetPacketCount']();
 }
 
 export function Greet(arg1) {

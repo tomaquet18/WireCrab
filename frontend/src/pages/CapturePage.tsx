@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,16 +10,51 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { Play, StopCircle } from "lucide-react"
-import { GetCapturedPackets, StartCapture } from "../../wailsjs/go/main/App"
-import { capture } from "../../wailsjs/go/models"
+import { GetCapturedPackets, StartCapture, GetPacketCount } from "../../wailsjs/go/main/App"
+import { types } from "../../wailsjs/go/models"
 import { useInterfaceStore } from "@/stores/interfaces"
 
-type CapturedPacket = capture.CapturedPacket
+type CapturedPacket = types.CapturedPacket
 
 export default function CapturePage() {
   const [isCapturing, setIsCapturing] = useState(false)
   const [packets, setPackets] = useState<CapturedPacket[]>([])
+  const [totalPackets, setTotalPackets] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const pageSize = 100
+  const loadMoreRef = useRef(null)
   const interfaceName = useInterfaceStore((s) => s.selected)
+
+  const loadMorePackets = async () => {
+    if (loading) return
+    setLoading(true)
+
+    try {
+      const newPackets = await GetCapturedPackets(packets.length, pageSize)
+      if (newPackets && newPackets.length > 0) {
+        setPackets(prev => [...prev, ...newPackets])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          loadMorePackets()
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [packets])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>
@@ -27,8 +62,14 @@ export default function CapturePage() {
     if (isCapturing && interfaceName) {
       StartCapture(interfaceName)
 
-      interval = setInterval(() => {
-        GetCapturedPackets().then((data) => setPackets(data || []))
+      interval = setInterval(async () => {
+        const count = await GetPacketCount()
+        setTotalPackets(count)
+
+        // Load new packets only if we're near the end
+        if (packets.length >= totalPackets - pageSize) {
+          loadMorePackets()
+        }
       }, 1000)
     }
 
@@ -91,6 +132,13 @@ export default function CapturePage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        
+
+        {/* Packet count indicator */}
+        <div className="px-4 py-2 border-t">
+          Total Packets: {totalPackets}
         </div>
       </div>
     </div>

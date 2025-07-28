@@ -5,30 +5,31 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"wirecrab/internal/storage"
 	"wirecrab/internal/tshark"
+	"wirecrab/internal/types"
 )
 
 var defaultTimeout = 2 * time.Second
 
 type CaptureService struct {
-	session   *CaptureSession
+	store     storage.PacketStore
 	tshark    *tshark.TsharkLive
 	stopChan  chan struct{}
 	waitGroup sync.WaitGroup
 }
 
 func NewCaptureService() *CaptureService {
-	return &CaptureService{}
+	return &CaptureService{
+		store: storage.NewMemoryPacketStore(1000000), // Store up to 1 million packets
+	}
 }
 
 func (s *CaptureService) Start(device string) error {
-	if s.session != nil {
+	if s.tshark != nil {
 		s.Stop() // Stop previous capture
 	}
 
-	s.session = &CaptureSession{
-		Packets: make([]CapturedPacket, 0, 500), // Preallocate space to reduce allocations
-	}
 	s.stopChan = make(chan struct{})
 
 	tshark, err := tshark.StartTsharkLive(device)
@@ -52,8 +53,7 @@ func (s *CaptureService) Start(device string) error {
 				}
 
 				meta := extractMetaFromParsed(proto)
-
-				s.session.Packets = append(s.session.Packets, CapturedPacket{
+				s.store.Push(types.CapturedPacket{
 					Meta:   meta,
 					Parsed: proto,
 				})
@@ -72,28 +72,26 @@ func (s *CaptureService) Stop() {
 		close(s.stopChan)
 	}
 	s.waitGroup.Wait()
-	s.session = nil
 	s.tshark = nil
 	s.stopChan = nil
 }
 
-func (s *CaptureService) GetPackets() []CapturedPacket {
-	if s.session == nil {
-		return nil
-	}
-	out := make([]CapturedPacket, len(s.session.Packets))
-	copy(out, s.session.Packets)
-	return out
+func (s *CaptureService) GetPackets(offset, limit int) []types.CapturedPacket {
+	return s.store.GetRange(offset, limit)
+}
+
+func (s *CaptureService) GetPacketCount() int {
+	return s.store.Count()
 }
 
 func (s *CaptureService) Clear() {
-	s.session = nil
+	s.store.Clear()
 }
 
 // ---------------------- helpers ----------------------
 
-func extractMetaFromParsed(parsed *tshark.ProtocolInfo) PacketMeta {
-	meta := PacketMeta{
+func extractMetaFromParsed(parsed *tshark.ProtocolInfo) types.PacketMeta {
+	meta := types.PacketMeta{
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 

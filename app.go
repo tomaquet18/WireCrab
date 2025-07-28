@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"wirecrab/internal/capture"
 	"wirecrab/internal/devices"
+	"wirecrab/internal/types"
 )
 
 // App struct
@@ -44,8 +45,18 @@ func (a *App) StartCapture(device string) {
 }
 
 // GetCapturedPackets returns a list of captured packets
-func (a *App) GetCapturedPackets() []capture.CapturedPacket {
-	return a.captureService.GetPackets()
+func (a *App) GetCapturedPackets(offset int, limit int) []types.CapturedPacket {
+	if a.captureService == nil {
+		return nil
+	}
+	return a.captureService.GetPackets(offset, limit)
+}
+
+func (a *App) GetPacketCount() int {
+	if a.captureService == nil {
+		return 0
+	}
+	return a.captureService.GetPacketCount()
 }
 
 // ClearCapturedPackets clears the list of captured packets

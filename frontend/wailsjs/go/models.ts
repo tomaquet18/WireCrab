@@ -1,17 +1,16 @@
 export namespace capture {
 	
-	export class PacketInfo {
+	export class PacketMeta {
 	    Timestamp: string;
-	    SrcIP: string;
-	    DstIP: string;
-	    SrcPort: string;
-	    DstPort: string;
-	    Protocol: string;
-	    Length: number;
-	    RawData: number[];
+	    SrcIP?: string;
+	    DstIP?: string;
+	    SrcPort?: string;
+	    DstPort?: string;
+	    Protocol?: string;
+	    Length?: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new PacketInfo(source);
+	        return new PacketMeta(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -23,11 +22,10 @@ export namespace capture {
 	        this.DstPort = source["DstPort"];
 	        this.Protocol = source["Protocol"];
 	        this.Length = source["Length"];
-	        this.RawData = source["RawData"];
 	    }
 	}
 	export class CapturedPacket {
-	    meta: PacketInfo;
+	    meta: PacketMeta;
 	    parsed?: dissect.ProtocolInfo;
 	
 	    static createFrom(source: any = {}) {
@@ -36,7 +34,7 @@ export namespace capture {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.meta = this.convertValues(source["meta"], PacketInfo);
+	        this.meta = this.convertValues(source["meta"], PacketMeta);
 	        this.parsed = this.convertValues(source["parsed"], dissect.ProtocolInfo);
 	    }
 	

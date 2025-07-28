@@ -1,12 +1,14 @@
 package capture
 
-import "wirecrab/internal/layers/dissect"
+import (
+	"wirecrab/internal/tshark"
+)
 
 type CaptureSession struct {
 	Packets []CapturedPacket
 }
 
 type CapturedPacket struct {
-	Meta   PacketInfo            `json:"meta"`
-	Parsed *dissect.ProtocolInfo `json:"parsed"`
+	Meta   PacketMeta           `json:"meta"`
+	Parsed *tshark.ProtocolInfo `json:"parsed"`
 }

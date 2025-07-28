@@ -30,7 +30,7 @@ settings:
   footer-type-enum:
     argument: []
   header-max-length:
-    argument: 80
+    argument: 200
   header-min-length:
     argument: 10
   scope-charset:

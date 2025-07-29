@@ -4,22 +4,18 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"wirecrab/internal/storage"
 	"wirecrab/internal/tshark"
 	"wirecrab/internal/types"
 )
 
 type CaptureService struct {
-	store     storage.PacketStore
 	tshark    *tshark.TsharkLive
 	stopChan  chan struct{}
 	waitGroup sync.WaitGroup
 }
 
 func NewCaptureService() *CaptureService {
-	return &CaptureService{
-		store: storage.NewMemoryPacketStore(1000000), // Store up to 1 million packets
-	}
+	return &CaptureService{}
 }
 
 func (s *CaptureService) Start(device string) error {
@@ -27,36 +23,11 @@ func (s *CaptureService) Start(device string) error {
 		s.Stop() // Stop previous capture
 	}
 
-	s.stopChan = make(chan struct{})
-
 	tshark, err := tshark.StartTsharkLive(device)
 	if err != nil {
 		return err
 	}
 	s.tshark = tshark
-
-	s.waitGroup.Add(1)
-	go func() {
-		defer s.waitGroup.Done()
-		for {
-			select {
-			case <-s.stopChan:
-				return
-			default:
-				proto, err := tshark.Next()
-				if err != nil {
-					fmt.Println(err)
-					continue
-				}
-
-				meta := extractMetaFromParsed(proto)
-				s.store.Push(types.CapturedPacket{
-					Meta:   meta,
-					Parsed: proto,
-				})
-			}
-		}
-	}()
 
 	return nil
 }
@@ -65,24 +36,46 @@ func (s *CaptureService) Stop() {
 	if s.tshark != nil {
 		_ = s.tshark.Close()
 	}
-	if s.stopChan != nil {
-		close(s.stopChan)
-	}
-	s.waitGroup.Wait()
 	s.tshark = nil
-	s.stopChan = nil
 }
 
 func (s *CaptureService) GetPackets(offset, limit int) []types.CapturedPacket {
-	return s.store.GetRange(offset, limit)
+	if s.tshark == nil {
+		return nil
+	}
+
+	protos, err := s.tshark.GetPacketList(offset, limit)
+	if err != nil {
+		return nil
+	}
+
+	packets := make([]types.CapturedPacket, 0, len(protos))
+	for i := range protos {
+		packets = append(packets, types.CapturedPacket{
+			Meta:   extractMetaFromParsed(&protos[i]),
+			Parsed: &protos[i],
+		})
+	}
+	return packets
 }
 
 func (s *CaptureService) GetPacketCount() int {
-	return s.store.Count()
+	if s.tshark == nil {
+		return 0
+	}
+
+	count, err := s.tshark.GetPacketCount()
+	if err != nil {
+		return 0
+	}
+	return count
 }
 
-func (s *CaptureService) Clear() {
-	s.store.Clear()
+func (s *CaptureService) GetPacketDetails(packetNumber int) (*tshark.PacketDetails, error) {
+	if s.tshark == nil {
+		return nil, fmt.Errorf("tshark not running")
+	}
+	return s.tshark.GetPacketDetails(packetNumber)
 }
 
 // ---------------------- helpers ----------------------
@@ -112,13 +105,6 @@ func extractMetaFromParsed(parsed *tshark.ProtocolInfo) types.PacketMeta {
 	}
 
 	return meta
-}
-
-func (s *CaptureService) GetPacketDetails(packetNumber int) (*tshark.PacketDetails, error) {
-	if s.tshark == nil {
-		return nil, fmt.Errorf("tshark not running")
-	}
-	return s.tshark.GetPacketDetails(packetNumber)
 }
 
 func atoi(s string) int {

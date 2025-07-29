@@ -60,11 +60,6 @@ func (a *App) GetPacketCount() int {
 	return a.captureService.GetPacketCount()
 }
 
-// ClearCapturedPackets clears the list of captured packets
-func (a *App) ClearCapturedPackets() {
-	a.captureService.Clear()
-}
-
 func (a *App) GetPacketDetails(packetNumber int) (*tshark.PacketDetails, error) {
 	if a.captureService == nil {
 		return nil, fmt.Errorf("capture service not started")

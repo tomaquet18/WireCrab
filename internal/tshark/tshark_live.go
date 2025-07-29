@@ -157,3 +157,70 @@ func (t *TsharkLive) Close() error {
 	_ = os.Remove(t.pcapPath)
 	return t.cmd.Wait()
 }
+
+func (t *TsharkLive) GetPacketList(offset, limit int) ([]ProtocolInfo, error) {
+	binary := "tshark"
+	if runtime.GOOS == "windows" {
+		binary = "tshark.exe"
+	}
+
+	cmd := exec.Command(binary,
+		"-r", t.pcapPath,
+		"-T", "fields",
+		"-E", "separator=|",
+		"-e", "frame.number",
+		"-e", "_ws.col.protocol",
+		"-e", "ip.src",
+		"-e", "ip.dst",
+		"-e", "frame.len",
+		"-e", "_ws.col.info",
+		"-Y", fmt.Sprintf("frame.number >= %d and frame.number < %d", offset+1, offset+limit+1))
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("get packet list: %w", err)
+	}
+
+	var packets []ProtocolInfo
+	for _, line := range strings.Split(string(output), "\n") {
+		if line == "" {
+			continue
+		}
+		fields := strings.Split(line, "|")
+		if len(fields) < 6 {
+			continue
+		}
+		packets = append(packets, ProtocolInfo{
+			Name: fields[1],
+			Detail: map[string]any{
+				"frame.number": map[string]any{"value": fields[0]},
+				"ip.src":       map[string]any{"value": fields[2]},
+				"ip.dst":       map[string]any{"value": fields[3]},
+				"frame.len":    map[string]any{"value": fields[4]},
+				"_ws.col.info": map[string]any{"value": fields[5]},
+			},
+		})
+	}
+
+	return packets, nil
+}
+
+func (t *TsharkLive) GetPacketCount() (int, error) {
+	binary := "tshark"
+	if runtime.GOOS == "windows" {
+		binary = "tshark.exe"
+	}
+
+	cmd := exec.Command(binary,
+		"-r", t.pcapPath,
+		"-T", "fields",
+		"-e", "frame.number")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("get packet count: %w", err)
+	}
+
+	lines := strings.Split(string(output), "\n")
+	return len(lines) - 1, nil // subtract 1 for empty last line
+}

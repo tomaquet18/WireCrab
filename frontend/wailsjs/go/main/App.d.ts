@@ -4,8 +4,6 @@ import {types} from '../models';
 import {devices} from '../models';
 import {tshark} from '../models';
 
-export function ClearCapturedPackets():Promise<void>;
-
 export function GetCapturedPackets(arg1:number,arg2:number):Promise<Array<types.CapturedPacket>>;
 
 export function GetDevices():Promise<Array<devices.Device>>;

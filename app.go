@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"wirecrab/internal/capture"
 	"wirecrab/internal/devices"
+	"wirecrab/internal/tshark"
 	"wirecrab/internal/types"
 )
 
@@ -62,4 +63,11 @@ func (a *App) GetPacketCount() int {
 // ClearCapturedPackets clears the list of captured packets
 func (a *App) ClearCapturedPackets() {
 	a.captureService.Clear()
+}
+
+func (a *App) GetPacketDetails(packetNumber int) (*tshark.ProtocolInfo, error) {
+	if a.captureService == nil {
+		return nil, fmt.Errorf("capture service not started")
+	}
+	return a.captureService.GetPacketDetails(packetNumber)
 }

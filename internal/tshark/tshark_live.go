@@ -77,7 +77,6 @@ func (t *TsharkLive) GetPacketDetails(packetNumber int) (*ProtocolInfo, error) {
 
 	cmd := exec.Command(binary,
 		"-r", t.pcapPath, // read from pcap file
-		"-c", "1", // read only one packet
 		"-Y", fmt.Sprintf("frame.number==%d", packetNumber), // filter by packet number
 		"-T", "pdml") // use PDML for detailed output
 

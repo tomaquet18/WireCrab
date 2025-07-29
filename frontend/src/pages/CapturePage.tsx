@@ -10,9 +10,10 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { Play, StopCircle } from "lucide-react"
-import { GetCapturedPackets, StartCapture, GetPacketCount } from "../../wailsjs/go/main/App"
-import { types } from "../../wailsjs/go/models"
+import { GetCapturedPackets, StartCapture, GetPacketCount, GetPacketDetails } from "../../wailsjs/go/main/App"
+import { types, tshark } from "../../wailsjs/go/models"
 import { useInterfaceStore } from "@/stores/interfaces"
+import { PacketDetailsDrawer } from "@/components/packet-details-drawer";
 
 type CapturedPacket = types.CapturedPacket
 
@@ -21,6 +22,8 @@ export default function CapturePage() {
   const [packets, setPackets] = useState<CapturedPacket[]>([])
   const [totalPackets, setTotalPackets] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [selectedPacket, setSelectedPacket] = useState<number | null>(null);
+  const [packetDetails, setPacketDetails] = useState<tshark.ProtocolInfo | undefined>();
   const pageSize = 100
   const loadMoreRef = useRef(null)
   const interfaceName = useInterfaceStore((s) => s.selected)
@@ -38,6 +41,18 @@ export default function CapturePage() {
       setLoading(false)
     }
   }
+
+  const handlePacketClick = async(idx: number) => {
+    console.log('Clicked packet number:', idx + 1); // packet numbers start from 1
+    setSelectedPacket(idx + 1);
+    try {
+      const details = await GetPacketDetails(idx + 1);
+      console.log('Received packet details:', details);
+      setPacketDetails(details);
+    } catch(error) {
+      console.error('Failed to get packet details:', error);
+    }
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -120,7 +135,11 @@ export default function CapturePage() {
             </TableHeader>
             <TableBody>
               {packets.map((pkt, idx) => (
-                <TableRow key={idx} className="hover:bg-accent cursor-pointer">
+                <TableRow 
+                  key={idx}
+                  className="hover:bg-accent cursor-pointer"
+                  onClick={() => handlePacketClick(idx)}
+                >
                   <TableCell className="text-right">{idx + 1}</TableCell>
                   <TableCell>{pkt.meta.Timestamp}</TableCell>
                   <TableCell>{pkt.meta.SrcIP}</TableCell>
@@ -141,6 +160,12 @@ export default function CapturePage() {
           Total Packets: {totalPackets}
         </div>
       </div>
+
+      <PacketDetailsDrawer
+        isOpen={selectedPacket !== null}
+        onClose={() => setSelectedPacket(null)}
+        protocolInfo={packetDetails}
+      />
     </div>
   )
 }

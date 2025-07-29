@@ -114,6 +114,13 @@ func extractMetaFromParsed(parsed *tshark.ProtocolInfo) types.PacketMeta {
 	return meta
 }
 
+func (s *CaptureService) GetPacketDetails(packetNumber int) (*tshark.ProtocolInfo, error) {
+	if s.tshark == nil {
+		return nil, fmt.Errorf("tshark not running")
+	}
+	return s.tshark.GetPacketDetails(packetNumber)
+}
+
 func atoi(s string) int {
 	n, _ := strconv.Atoi(s)
 	return n

@@ -18,6 +18,10 @@ export function GetPacketCount() {
   return window['go']['main']['App']['GetPacketCount']();
 }
 
+export function GetPacketDetails(arg1) {
+  return window['go']['main']['App']['GetPacketDetails'](arg1);
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }

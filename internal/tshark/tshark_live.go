@@ -69,25 +69,37 @@ func StartTsharkLive(device string) (*TsharkLive, error) {
 }
 
 // GetPacketDetails retrieves detailed information for a specific packet
-func (t *TsharkLive) GetPacketDetails(packetNumber int) (*ProtocolInfo, error) {
+func (t *TsharkLive) GetPacketDetails(packetNumber int) (*PacketDetails, error) {
 	binary := "tshark"
 	if runtime.GOOS == "windows" {
 		binary = "tshark.exe"
 	}
 
-	cmd := exec.Command(binary,
+	// Get PDML data
+	pdmlCmd := exec.Command(binary,
 		"-r", t.pcapPath, // read from pcap file
 		"-Y", fmt.Sprintf("frame.number==%d", packetNumber), // filter by packet number
 		"-T", "pdml") // use PDML for detailed output
 
-	output, err := cmd.Output()
+	pdmlOutput, err := pdmlCmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("get packet details: %w", err)
 	}
 
+	// Get hex dump
+	hexCmd := exec.Command(binary,
+		"-r", t.pcapPath,
+		"-Y", fmt.Sprintf("frame.number==%d", packetNumber),
+		"-x")
+
+	hexOutput, err := hexCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("get hex dump: %w", err)
+	}
+
 	// Parse PDML output and return ProtocolInfo
 	var pdml PDML
-	if err := xml.Unmarshal(output, &pdml); err != nil {
+	if err := xml.Unmarshal(pdmlOutput, &pdml); err != nil {
 		return nil, fmt.Errorf("parse pdml: %w", err)
 	}
 
@@ -95,7 +107,10 @@ func (t *TsharkLive) GetPacketDetails(packetNumber int) (*ProtocolInfo, error) {
 		return nil, fmt.Errorf("packet not found")
 	}
 
-	return PdmlToProtocolInfo(pdml.Packets[0].Protos), nil
+	return &PacketDetails{
+		Info:    PdmlToProtocolInfo(pdml.Packets[0].Protos),
+		HexDump: string(hexOutput),
+	}, nil
 }
 
 func (t *TsharkLive) Next() (*ProtocolInfo, error) {

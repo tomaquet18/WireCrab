@@ -12,7 +12,7 @@ export function GetDevices():Promise<Array<devices.Device>>;
 
 export function GetPacketCount():Promise<number>;
 
-export function GetPacketDetails(arg1:number):Promise<tshark.ProtocolInfo>;
+export function GetPacketDetails(arg1:number):Promise<tshark.PacketDetails>;
 
 export function Greet(arg1:string):Promise<string>;
 

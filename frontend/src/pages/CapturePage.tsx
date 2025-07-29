@@ -13,7 +13,8 @@ import { Play, StopCircle } from "lucide-react"
 import { GetCapturedPackets, StartCapture, GetPacketCount, GetPacketDetails } from "../../wailsjs/go/main/App"
 import { types, tshark } from "../../wailsjs/go/models"
 import { useInterfaceStore } from "@/stores/interfaces"
-import { PacketDetailsDrawer } from "@/components/packet-details-drawer";
+import { PacketDetailsPanel } from "@/components/packet-details-panel";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 
 type CapturedPacket = types.CapturedPacket
 
@@ -22,8 +23,8 @@ export default function CapturePage() {
   const [packets, setPackets] = useState<CapturedPacket[]>([])
   const [totalPackets, setTotalPackets] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [selectedPacket, setSelectedPacket] = useState<number | null>(null);
-  const [packetDetails, setPacketDetails] = useState<tshark.ProtocolInfo | undefined>();
+  const [selectedPacketDetails, setSelectedPacketDetails] = useState<any>(null);
+  const [hexDump, setHexDump] = useState<string>("");
   const pageSize = 100
   const loadMoreRef = useRef(null)
   const interfaceName = useInterfaceStore((s) => s.selected)
@@ -42,17 +43,18 @@ export default function CapturePage() {
     }
   }
 
-  const handlePacketClick = async(idx: number) => {
-    console.log('Clicked packet number:', idx + 1); // packet numbers start from 1
-    setSelectedPacket(idx + 1);
+  const handlePacketClick = async(packet: CapturedPacket) => {
+    const frameNumber = packet.parsed?.Detail?.["frame.number"]?.value
+    if (!frameNumber) return
+
     try {
-      const details = await GetPacketDetails(idx + 1);
-      console.log('Received packet details:', details);
-      setPacketDetails(details);
-    } catch(error) {
-      console.error('Failed to get packet details:', error);
+      const details = await GetPacketDetails(parseInt(frameNumber))
+      setSelectedPacketDetails(details.Info)
+      setHexDump(details.HexDump)
+    } catch (error) {
+      console.error('Failed to get packet details: ', error)
     }
-  };
+  }
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -118,54 +120,62 @@ export default function CapturePage() {
         />
       </div>
 
-      {/* Scrollable table area with sticky header */}
+      {/* Main content area */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto relative">
-          <Table className="w-full table-auto">
-            <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-              <TableRow>
-                <TableHead className="w-12 text-right">No.</TableHead>
-                <TableHead className="min-w-[80px] w-[100px]">Time</TableHead>
-                <TableHead className="min-w-[140px]">Source</TableHead>
-                <TableHead className="min-w-[140px]">Destination</TableHead>
-                <TableHead className="w-[90px]">Protocol</TableHead>
-                <TableHead className="w-[70px] text-right">Length</TableHead>
-                <TableHead className="min-w-[200px]">Info</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {packets.map((pkt, idx) => (
-                <TableRow 
-                  key={idx}
-                  className="hover:bg-accent cursor-pointer"
-                  onClick={() => handlePacketClick(idx)}
-                >
-                  <TableCell className="text-right">{idx + 1}</TableCell>
-                  <TableCell>{pkt.meta.Timestamp}</TableCell>
-                  <TableCell>{pkt.meta.SrcIP}</TableCell>
-                  <TableCell>{pkt.meta.DstIP}</TableCell>
-                  <TableCell>{pkt.meta.Protocol}</TableCell>
-                  <TableCell className="text-right">{pkt.meta.Length}</TableCell>
-                  <TableCell>{pkt.meta.Info || "-"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ResizablePanelGroup direction="vertical">
+          {/* Packet List */}
+          <ResizablePanel defaultSize={75}>
+              <div className="h-full overflow-y-auto">
+                <Table className="w-full table-auto">
+                  <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                    <TableRow>
+                      <TableHead className="w-12 text-right">No.</TableHead>
+                      <TableHead className="min-w-[80px] w-[100px]">Time</TableHead>
+                      <TableHead className="min-w-[140px]">Source</TableHead>
+                      <TableHead className="min-w-[140px]">Destination</TableHead>
+                      <TableHead className="w-[90px]">Protocol</TableHead>
+                      <TableHead className="w-[70px] text-right">Length</TableHead>
+                      <TableHead className="min-w-[200px]">Info</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {packets.map((pkt, idx) => (
+                      <TableRow 
+                        key={idx}
+                        className="hover:bg-accent cursor-pointer"
+                        onClick={() => handlePacketClick(pkt)}
+                      >
+                        <TableCell className="text-right">{idx + 1}</TableCell>
+                        <TableCell>{pkt.meta.Timestamp}</TableCell>
+                        <TableCell>{pkt.meta.SrcIP}</TableCell>
+                        <TableCell>{pkt.meta.DstIP}</TableCell>
+                        <TableCell>{pkt.meta.Protocol}</TableCell>
+                        <TableCell className="text-right">{pkt.meta.Length}</TableCell>
+                        <TableCell>{pkt.meta.Info || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+          </ ResizablePanel>
 
-        
+          <ResizableHandle />
 
-        {/* Packet count indicator */}
-        <div className="px-4 py-2 border-t">
-          Total Packets: {totalPackets}
-        </div>
+          {/* Details Panel */}
+          <ResizablePanel defaultSize={25}>
+            <PacketDetailsPanel
+              protocolInfo={selectedPacketDetails}
+              hexDump={hexDump}
+            />
+
+
+            {/* Packet count indicator */}
+            <div className="px-4 py-2 border-t shrink-0">
+              Total Packets: {totalPackets}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>  
       </div>
-
-      <PacketDetailsDrawer
-        isOpen={selectedPacket !== null}
-        onClose={() => setSelectedPacket(null)}
-        protocolInfo={packetDetails}
-      />
     </div>
   )
 }

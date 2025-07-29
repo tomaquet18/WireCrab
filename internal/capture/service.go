@@ -114,7 +114,7 @@ func extractMetaFromParsed(parsed *tshark.ProtocolInfo) types.PacketMeta {
 	return meta
 }
 
-func (s *CaptureService) GetPacketDetails(packetNumber int) (*tshark.ProtocolInfo, error) {
+func (s *CaptureService) GetPacketDetails(packetNumber int) (*tshark.PacketDetails, error) {
 	if s.tshark == nil {
 		return nil, fmt.Errorf("tshark not running")
 	}

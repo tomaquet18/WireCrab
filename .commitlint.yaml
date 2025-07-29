@@ -12,7 +12,7 @@ settings:
   body-max-length:
     argument: -1
   body-max-line-length:
-    argument: 72
+    argument: 200
   body-min-length:
     argument: 0
   description-max-length:

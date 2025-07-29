@@ -10,6 +10,7 @@ type PacketMeta struct {
 	DstPort   string `json:"DstPort,omitempty"`
 	Protocol  string `json:"Protocol,omitempty"`
 	Length    int    `json:"Length,omitempty"`
+	Info      string `json:"Info,omitempty"`
 }
 
 type CapturedPacket struct {

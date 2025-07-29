@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 	"wirecrab/internal/storage"
 	"wirecrab/internal/tshark"
 	"wirecrab/internal/types"
 )
-
-var defaultTimeout = 2 * time.Second
 
 type CaptureService struct {
 	store     storage.PacketStore
@@ -91,54 +88,29 @@ func (s *CaptureService) Clear() {
 // ---------------------- helpers ----------------------
 
 func extractMetaFromParsed(parsed *tshark.ProtocolInfo) types.PacketMeta {
-	meta := types.PacketMeta{
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
+	meta := types.PacketMeta{}
 
-	var lastProto string
-	var walk func(p *tshark.ProtocolInfo)
-	walk = func(p *tshark.ProtocolInfo) {
-		if p == nil {
-			return
-		}
-
-		lastProto = p.Name
-
-		if detailMap, ok := p.Detail.(map[string]any); ok {
-			get := func(key string) string {
-				if v, ok := detailMap[key]; ok {
-					if m, ok := v.(map[string]any); ok {
-						if val, ok := m["value"].(string); ok {
-							return val
-						}
+	// Helper function to get values from detail map
+	if detailMap, ok := parsed.Detail.(map[string]any); ok {
+		get := func(key string) string {
+			if v, ok := detailMap[key]; ok {
+				if m, ok := v.(map[string]any); ok {
+					if val, ok := m["value"].(string); ok {
+						return val
 					}
 				}
-				return ""
 			}
-
-			switch p.Name {
-			case "ip":
-				meta.SrcIP = get("ip.src")
-				meta.DstIP = get("ip.dst")
-				if meta.Length == 0 {
-					meta.Length = atoi(get("ip.len"))
-				}
-			case "tcp", "udp":
-				meta.SrcPort = get(p.Name + ".srcport")
-				meta.DstPort = get(p.Name + ".dstport")
-			case "frame":
-				if meta.Length == 0 {
-					meta.Length = atoi(get("frame.len"))
-				}
-			}
+			return ""
 		}
 
-		walk(p.Child)
+		meta.Timestamp = get("timestamp")
+		meta.SrcIP = get("ip.src")
+		meta.DstIP = get("ip.dst")
+		meta.Protocol = parsed.Name
+		meta.Length = atoi(get("frame.len"))
+		meta.Info = get("_ws.col.info")
 	}
 
-	walk(parsed)
-
-	meta.Protocol = lastProto
 	return meta
 }
 

@@ -68,6 +68,7 @@ export namespace types {
 	    DstPort?: string;
 	    Protocol?: string;
 	    Length?: number;
+	    Info?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PacketMeta(source);
@@ -82,6 +83,7 @@ export namespace types {
 	        this.DstPort = source["DstPort"];
 	        this.Protocol = source["Protocol"];
 	        this.Length = source["Length"];
+	        this.Info = source["Info"];
 	    }
 	}
 	export class CapturedPacket {

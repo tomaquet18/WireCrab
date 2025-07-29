@@ -127,7 +127,7 @@ export default function CapturePage() {
                   <TableCell>{pkt.meta.DstIP}</TableCell>
                   <TableCell>{pkt.meta.Protocol}</TableCell>
                   <TableCell className="text-right">{pkt.meta.Length}</TableCell>
-                  <TableCell>{pkt.parsed?.Name || "-"}</TableCell>
+                  <TableCell>{pkt.meta.Info || "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

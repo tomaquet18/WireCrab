@@ -2,36 +2,50 @@ package tshark
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 )
 
-// TsharkLive wraps a long-running tshark process that captures and dissects.
 type TsharkLive struct {
-	cmd    *exec.Cmd
-	stdout *bufio.Reader
-	stderr io.ReadCloser
-
-	mu     sync.Mutex
-	closed bool
+	cmd      *exec.Cmd
+	stdout   *bufio.Reader
+	stderr   io.ReadCloser
+	pcapPath string
+	mu       sync.Mutex
+	closed   bool
 }
 
-// StartTsharkLive starts tshark capturing on the given device and emitting PDML continiously.
 func StartTsharkLive(device string) (*TsharkLive, error) {
 	binary := "tshark"
 	if runtime.GOOS == "windows" {
 		binary = "tshark.exe"
 	}
 
-	// -l : line-buffered -> we can read incrementally
-	// -n : no name resolution (faster)
-	// -T pdml : structured XML output
-	cmd := exec.Command(binary, "-i", device, "-l", "-n", "-T", "pdml")
+	// Create a temporary file for pcap
+	tempDir := os.TempDir()
+	pcapPath := filepath.Join(tempDir, fmt.Sprintf("wirecrab-%d.pcap", time.Now().Unix()))
+
+	cmd := exec.Command(binary,
+		"-i", device,
+		"-l",           // line-buffered
+		"-n",           // no name resolution
+		"-w", pcapPath, // write to pcap file
+		"-T", "fields", // fields output
+		"-E", "separator=|",
+		"-e", "frame.number",
+		"-e", "_ws.col.protocol",
+		"-e", "ip.src",
+		"-e", "ip.dst",
+		"-e", "frame.len",
+		"-e", "_ws.col.info")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -47,59 +61,71 @@ func StartTsharkLive(device string) (*TsharkLive, error) {
 	}
 
 	return &TsharkLive{
-		cmd:    cmd,
-		stdout: bufio.NewReader(stdout),
-		stderr: stderr,
+		cmd:      cmd,
+		stdout:   bufio.NewReader(stdout),
+		stderr:   stderr,
+		pcapPath: pcapPath,
 	}, nil
 }
 
-// Next reads until it finds the next </packet> and returns its parsed ProtocolInfo.
-// Returns (nil, io.EOF) when tshark finishes.
+// GetPacketDetails retrieves detailed information for a specific packet
+func (t *TsharkLive) GetPacketDetails(packetNumber int) (*ProtocolInfo, error) {
+	binary := "tshark"
+	if runtime.GOOS == "windows" {
+		binary = "tshark.exe"
+	}
+
+	cmd := exec.Command(binary,
+		"-r", t.pcapPath, // read from pcap file
+		"-c", "1", // read only one packet
+		"-Y", fmt.Sprintf("frame.number==%d", packetNumber), // filter by packet number
+		"-T", "pdml") // use PDML for detailed output
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("get packet details: %w", err)
+	}
+
+	// Parse PDML output and return ProtocolInfo
+	var pdml PDML
+	if err := xml.Unmarshal(output, &pdml); err != nil {
+		return nil, fmt.Errorf("parse pdml: %w", err)
+	}
+
+	if len(pdml.Packets) == 0 {
+		return nil, fmt.Errorf("packet not found")
+	}
+
+	return PdmlToProtocolInfo(pdml.Packets[0].Protos), nil
+}
+
 func (t *TsharkLive) Next() (*ProtocolInfo, error) {
-	var buf bytes.Buffer
-
-	// We want to read PDML packet by packet.
-	// tshark emits <pdml> ... </packet> ... </packet> ... </pdml> chunks.
-	// We accomulate until we hit </packet> or </pdml>
-	for {
-		line, err := t.stdout.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil, io.EOF
-			}
-			return nil, fmt.Errorf("read stdout: %w", err)
+	line, err := t.stdout.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			return nil, io.EOF
 		}
-		buf.Write(line)
-
-		// stop when we got a closing tag of packet
-		if bytes.Contains(line, []byte("</packet>")) {
-			break
-		}
-
-		// sometimes tshark might flush </pdml> too
-		if bytes.Contains(line, []byte("</pdml>")) && buf.Len() > 0 {
-			break
-		}
+		return nil, fmt.Errorf("read stdout: %w", err)
 	}
 
-	// Try to unmarshal the buffer. It can be either a full <pdml>...</pdml> or at least a <packet>...</packet>.
-	// Wrap it in <pdml> if we only got <packet>...</packet>.
-	data := buf.Bytes()
-	if !bytes.Contains(data, []byte("<pdml")) {
-		data = append([]byte("<pdml>"), data...)
-		data = append(data, []byte("</pdml>")...)
+	// Split the line using pipe separator
+	fields := strings.Split(strings.TrimSpace(line), "|")
+	if len(fields) < 6 {
+		return nil, fmt.Errorf("invalid number of fields")
 	}
 
-	var result PDML
-	if err := xml.Unmarshal(data, &result); err != nil {
-		// Log and skip malformed chunks instead of crashing everything
-		return nil, fmt.Errorf("xml unmarshall: %w", err)
-	}
-	if len(result.Packets) == 0 {
-		return nil, fmt.Errorf("no packets found in chunk")
-	}
-
-	return PdmlToProtocolInfo(result.Packets[0].Protos), nil
+	// Create a ProtocolInfo with the fields
+	return &ProtocolInfo{
+		Name: fields[1], // protocol
+		Detail: map[string]any{
+			"frame.number": map[string]any{"value": fields[0]},
+			"ip.src":       map[string]any{"value": fields[2]},
+			"ip.dst":       map[string]any{"value": fields[3]},
+			"frame.len":    map[string]any{"value": fields[4]},
+			"_ws.col.info": map[string]any{"value": fields[5]},
+		},
+		Child: nil,
+	}, nil
 }
 
 // Close kills tshark.
@@ -113,5 +139,7 @@ func (t *TsharkLive) Close() error {
 	if t.cmd.Process != nil {
 		_ = t.cmd.Process.Kill()
 	}
+	// Clean up pcap file
+	_ = os.Remove(t.pcapPath)
 	return t.cmd.Wait()
 }

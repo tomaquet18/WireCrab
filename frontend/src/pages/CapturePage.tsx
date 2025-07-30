@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -15,6 +15,7 @@ import { types, tshark } from "../../wailsjs/go/models"
 import { useInterfaceStore } from "@/stores/interfaces"
 import { PacketDetailsPanel } from "@/components/packet-details-panel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
+import { VirtualizedPacketList } from "@/components/packet-list"
 
 type CapturedPacket = types.CapturedPacket
 
@@ -25,78 +26,90 @@ export default function CapturePage() {
   const [loading, setLoading] = useState(false)
   const [selectedPacketDetails, setSelectedPacketDetails] = useState<any>(null);
   const [hexDump, setHexDump] = useState<string>("");
+  const [isStarted, setIsStarted] = useState(false);
   const pageSize = 100
   const loadMoreRef = useRef(null)
   const interfaceName = useInterfaceStore((s) => s.selected)
+  const captureInterval = useRef<number>();
 
-  const loadMorePackets = async () => {
-    if (loading) return
-    setLoading(true)
+  // Memoize packet loading function
+  const loadMorePackets = useCallback(async () => {
+    if (loading) return;
+    setLoading(true);
 
     try {
-      const newPackets = await GetCapturedPackets(packets.length, pageSize)
-      if (newPackets && newPackets.length > 0) {
-        setPackets(prev => [...prev, ...newPackets])
+      // Get current packet count
+      const count = await GetPacketCount();
+      setTotalPackets(count);
+
+      // If there are new packets to load
+      if (count > packets.length) {
+        const newPackets = await GetCapturedPackets(packets.length, count - packets.length);
+        if (newPackets && newPackets.length > 0) {
+          setPackets(prev => [...prev, ...newPackets]);
+        }
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [loading, packets.length]);
 
-  const handlePacketClick = async(packet: CapturedPacket) => {
-    const frameNumber = packet.parsed?.Detail?.["frame.number"]?.value
-    if (!frameNumber) return
+  useEffect(() => {
+    let intervalId: number | undefined;
+
+    const startCapture = async () => {
+      if (!isStarted && interfaceName) {
+        try {
+          // Start the capture
+          await StartCapture(interfaceName);
+          setIsStarted(true);
+        } catch (error) {
+          console.error('Error startig capture:', error);
+          setIsCapturing(false);
+        }
+      }
+    };
+    
+    if (isCapturing) {
+      startCapture();
+      intervalId = window.setInterval(loadMorePackets, 1000);
+    } else {
+      setIsStarted(false);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    }
+  }, [isCapturing, interfaceName, isStarted]);
+
+  const handleStart = useCallback(() => {
+    setPackets([]); // Clear existing packets when starting new capture
+    setTotalPackets(0);
+    setIsStarted(false);
+    setIsCapturing(true);
+  }, []);
+
+  const handleStop = useCallback(() => {
+    setIsCapturing(false);
+  }, []);
+  
+  // Memoize packet click handler
+  const handlePacketClick = useCallback(async (packet: CapturedPacket) => {
+    const frameNumber = packet.parsed?.Detail?.["frame.number"]?.value;
+    if (!frameNumber) return;
 
     try {
-      const details = await GetPacketDetails(parseInt(frameNumber))
-      setSelectedPacketDetails(details.Info)
-      setHexDump(details.HexDump)
+      const details = await GetPacketDetails(parseInt(frameNumber));
+      setSelectedPacketDetails(details.Info);
+      setHexDump(details.HexDump);
     } catch (error) {
-      console.error('Failed to get packet details: ', error)
+      console.error('Failed to get packet details: ', error);
     }
-  }
+  }, []);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting) {
-          loadMorePackets()
-        }
-      },
-      { threshold: 0.5 }
-    )
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
-    }
-
-    return () => observer.disconnect()
-  }, [packets])
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>
-
-    if (isCapturing && interfaceName) {
-      StartCapture(interfaceName)
-
-      interval = setInterval(async () => {
-        const count = await GetPacketCount()
-        setTotalPackets(count)
-
-        // Load new packets only if we're near the end
-        if (packets.length >= totalPackets - pageSize) {
-          loadMorePackets()
-        }
-      }, 1000)
-    }
-
-    return () => {
-      clearInterval(interval)
-    }
-  }, [isCapturing, interfaceName])
-
-  const handleStart = () => setIsCapturing(true)
-  const handleStop = () => setIsCapturing(false)
 
   return (
     <div className="h-screen w-full flex flex-col">
@@ -125,48 +138,37 @@ export default function CapturePage() {
         <ResizablePanelGroup direction="vertical">
           {/* Packet List */}
           <ResizablePanel defaultSize={75}>
-              <div className="h-full overflow-y-auto">
-                <Table className="w-full table-auto">
-                  <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-                    <TableRow>
-                      <TableHead className="w-12 text-right">No.</TableHead>
-                      <TableHead className="min-w-[80px] w-[100px]">Time</TableHead>
-                      <TableHead className="min-w-[140px]">Source</TableHead>
-                      <TableHead className="min-w-[140px]">Destination</TableHead>
-                      <TableHead className="w-[90px]">Protocol</TableHead>
-                      <TableHead className="w-[70px] text-right">Length</TableHead>
-                      <TableHead className="min-w-[200px]">Info</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {packets.map((pkt, idx) => (
-                      <TableRow 
-                        key={idx}
-                        className="hover:bg-accent cursor-pointer"
-                        onClick={() => handlePacketClick(pkt)}
-                      >
-                        <TableCell className="text-right">{idx + 1}</TableCell>
-                        <TableCell>{pkt.meta.Timestamp}</TableCell>
-                        <TableCell>{pkt.meta.SrcIP}</TableCell>
-                        <TableCell>{pkt.meta.DstIP}</TableCell>
-                        <TableCell>{pkt.meta.Protocol}</TableCell>
-                        <TableCell className="text-right">{pkt.meta.Length}</TableCell>
-                        <TableCell>{pkt.meta.Info || "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            <div className="h-full flex flex-col">
+              {/* Table Header */}
+              <div className="flex w-full bg-background sticky top-0 z-10 border-b shadow-sm">
+                <div style={{ width: '5%' }} className="p-2 text-right font-medium">No.</div>
+                <div style={{ width: '10%' }} className="p-2 font-medium">Time</div>
+                <div style={{ width: '20%' }} className="p-2 font-medium">Source</div>
+                <div style={{ width: '20%' }} className="p-2 font-medium">Destination</div>
+                <div style={{ width: '10%' }} className="p-2 font-medium">Protocol</div>
+                <div style={{ width: '10%' }} className="p-2 text-right font-medium">Length</div>
+                <div style={{ width: '25%' }} className="p-2 font-medium">Info</div>
               </div>
+              {/* Virtualized Table Body */}
+              <div className="flex-1">
+                <VirtualizedPacketList 
+                    packets={packets} 
+                    onPacketClick={handlePacketClick} 
+                />
+              </div>
+            </div>
           </ ResizablePanel>
 
           <ResizableHandle />
 
           {/* Details Panel */}
           <ResizablePanel defaultSize={25}>
-            <PacketDetailsPanel
-              protocolInfo={selectedPacketDetails}
-              hexDump={hexDump}
-            />
+            <Suspense fallback={<div>Loading details...</div>}>
+              <PacketDetailsPanel
+                protocolInfo={selectedPacketDetails}
+                hexDump={hexDump}
+              />
+            </Suspense>
 
 
             {/* Packet count indicator */}

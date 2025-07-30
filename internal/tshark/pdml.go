@@ -21,7 +21,7 @@ type PDMLProto struct {
 }
 
 type PDMLField struct {
-	Name string `xml:"name,attr"`
+	Name string `xml:"showname,attr"`
 	Show string `xml:"show,attr"`
 	Pos  string `xml:"pos,attr"`
 	Size string `xml:"size,attr"`

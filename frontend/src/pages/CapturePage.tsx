@@ -170,36 +170,37 @@ export default function CapturePage() {
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="vertical">
+        <ResizablePanelGroup direction="vertical" className="h-full" autoSaveId="capture-page-layout">
           {/* Packet List */}
-          <ResizablePanel defaultSize={75}>
-            <div className="h-full flex flex-col">
+          <ResizablePanel defaultSize={75} minSize={30} maxSize={85} style={{ overflow: 'hidden' }}>
+            <div className="h-full overflow-auto relative">
               {/* Table */}
-              <VirtualTable
-                data={packets}
-                columns={columns}
-                onRowClick={handlePacketClick}
-              />
-
-              
+              <div className="w-full h-full relative">
+                <VirtualTable
+                  data={packets}
+                  columns={columns}
+                  onRowClick={handlePacketClick}
+                />
+              </div>
             </div>
           </ ResizablePanel>
 
-          <ResizableHandle />
+          <ResizableHandle className="h-2 bg-border hover:bg-foreground/10 transition-colors" />
 
           {/* Details Panel */}
-          <ResizablePanel defaultSize={25}>
-            <Suspense fallback={<div>Loading details...</div>}>
-              <PacketDetailsPanel
-                protocolInfo={selectedPacketDetails}
-                hexDump={hexDump}
-              />
-            </Suspense>
+          <ResizablePanel defaultSize={25} minSize={15} maxSize={70}>
+            <div className="h-full w-full">
+              <Suspense fallback={<div>Loading details...</div>}>
+                <PacketDetailsPanel
+                  protocolInfo={selectedPacketDetails}
+                  hexDump={hexDump}
+                />
+              </Suspense>
 
-
-            {/* Packet count indicator */}
-            <div className="px-4 py-2 border-t shrink-0">
-              Total Packets: {totalPackets}
+              {/* Packet count indicator */}
+              <div className="px-4 py-2 border-t">
+                Total Packets: {totalPackets}
+              </div>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>  

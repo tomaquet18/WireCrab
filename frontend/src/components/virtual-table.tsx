@@ -40,11 +40,11 @@ export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps
     };
 
     return (
-        <div className="border rounded-md">
+        <div className="w-full h-full">
             <Table>
                 {/* Sticky Header */}
                 <div className="sticky top-0 z-10 bg-background border-b">
-                    <div className="flex w-full">
+                    <div className="flex">
                         {columns.map((column, columnIndex) => (
                             <ResizableBox
                                 key={columnIndex}
@@ -71,12 +71,14 @@ export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps
                 {/* Virtualized Body */}
                 <div
                     ref={parentRef}
-                    className="max-h-[calc(100vh-300px)] overflow-auto"
+                    className="overflow-auto"
+                    style={{ height: 'calc(100% - 40px)' }}
                 >
                     <div
                         style={{
-                        height: `${virtualizer.getTotalSize()}px`,
-                        position: "relative",
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: '100%',
+                            position: "relative",
                         }}
                     >
                         {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -84,11 +86,8 @@ export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps
                             return (
                                 <div
                                     key={virtualRow.index}
-                                    className="flex w-full border-b hover:bg-muted/50 cursor-pointer"
+                                    className="absolute w-full flex border-b hover:bg-muted/50 cursor-pointer"
                                     style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
                                         height: `${virtualRow.size}px`,
                                         transform: `translateY(${virtualRow.start}px)`,
                                     }}

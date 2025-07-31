@@ -1,23 +1,15 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table"
 import { Play, StopCircle } from "lucide-react"
 import { GetCapturedPackets, StartCapture, GetPacketCount, GetPacketDetails } from "../../wailsjs/go/main/App"
-import { types, tshark } from "../../wailsjs/go/models"
+import { types } from "../../wailsjs/go/models"
 import { useInterfaceStore } from "@/stores/interfaces"
 import { PacketDetailsPanel } from "@/components/packet-details-panel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
-import { VirtualizedPacketList } from "@/components/packet-list"
+import { VirtualTable, Column } from "@/components/virtual-table"
 
-type CapturedPacket = types.CapturedPacket
+type CapturedPacket = types.CapturedPacket;
 
 export default function CapturePage() {
   const [isCapturing, setIsCapturing] = useState(false)
@@ -27,10 +19,53 @@ export default function CapturePage() {
   const [selectedPacketDetails, setSelectedPacketDetails] = useState<any>(null);
   const [hexDump, setHexDump] = useState<string>("");
   const [isStarted, setIsStarted] = useState(false);
-  const pageSize = 100
-  const loadMoreRef = useRef(null)
   const interfaceName = useInterfaceStore((s) => s.selected)
-  const captureInterval = useRef<number>();
+
+  const columns: Column<CapturedPacket>[] = [
+    {
+      header: "No.",
+      accessorFn: (row, index) => index + 1,
+      width: 60,
+      minWidth: 50,
+    },
+    {
+      header: "Time",
+      accessorFn: (row) => row.meta.Timestamp,
+      width: 120,
+      minWidth: 100,
+    },
+    {
+      header: "Source",
+      accessorFn: (row) => row.meta.SrcIP || "",
+      width: 160,
+      minWidth: 120,
+    },
+    {
+      header: "Destination",
+      accessorFn: (row) => row.meta.DstIP || "",
+      width: 160,
+      minWidth: 120,
+    },
+    {
+      header: "Protocol",
+      accessorFn: (row) => row.meta.Protocol || "",
+      width: 100,
+      minWidth: 80,
+    },
+    {
+      header: "Length",
+      accessorFn: (row) => row.meta.Length || 0,
+      width: 80,
+      minWidth: 60,
+    },
+    {
+      header: "Info",
+      accessorFn: (row) => row.meta.Info || "-",
+      width: 300,
+      minWidth: 150,
+    },
+  ];
+
 
   // Memoize packet loading function
   const loadMorePackets = useCallback(async () => {
@@ -139,23 +174,14 @@ export default function CapturePage() {
           {/* Packet List */}
           <ResizablePanel defaultSize={75}>
             <div className="h-full flex flex-col">
-              {/* Table Header */}
-              <div className="flex w-full bg-background sticky top-0 z-10 border-b shadow-sm">
-                <div style={{ width: '5%' }} className="p-2 text-right font-medium">No.</div>
-                <div style={{ width: '10%' }} className="p-2 font-medium">Time</div>
-                <div style={{ width: '20%' }} className="p-2 font-medium">Source</div>
-                <div style={{ width: '20%' }} className="p-2 font-medium">Destination</div>
-                <div style={{ width: '10%' }} className="p-2 font-medium">Protocol</div>
-                <div style={{ width: '10%' }} className="p-2 text-right font-medium">Length</div>
-                <div style={{ width: '25%' }} className="p-2 font-medium">Info</div>
-              </div>
-              {/* Virtualized Table Body */}
-              <div className="flex-1">
-                <VirtualizedPacketList 
-                    packets={packets} 
-                    onPacketClick={handlePacketClick} 
-                />
-              </div>
+              {/* Table */}
+              <VirtualTable
+                data={packets}
+                columns={columns}
+                onRowClick={handlePacketClick}
+              />
+
+              
             </div>
           </ ResizablePanel>
 

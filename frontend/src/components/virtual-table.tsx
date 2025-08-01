@@ -20,6 +20,30 @@ interface VirtualTableProps<T> {
     onRowClick?: (row: T) => void;
 }
 
+function getPacketRowColor(packet: CapturedPacket) {
+    const protocol = packet.meta.Protocol?.toLowerCase() || '';
+    const info = packet.meta.Info?.toLowerCase() || '';
+
+    // Protocol-based coloring
+    switch(protocol) {
+        case 'tcp':
+            return 'bg-purple-100 hover:bg-purple-200';
+        case 'udp':
+            return 'bg-blue-100 hover:bg-blue-200';
+        case 'http':
+            return 'bg-green-100 hover:bg-green-200';
+        case 'smb':
+        case 'netbios':
+            return 'bg-yellow-100 hover:bg-yellow-200';
+        case 'ospf':
+        case 'bgp':
+        case 'rip':
+            return 'bg-yellow-200 hover:bg-yellow-300';
+        default:
+            return 'hover:bg-muted/50';
+    }
+}
+
 export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps<T>) {
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [columnWidths, setColumnWidths] = React.useState<number[]>(
@@ -83,10 +107,12 @@ export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps
                     >
                         {virtualizer.getVirtualItems().map((virtualRow) => {
                             const row = data[virtualRow.index];
+                            const rowColorClass = getPacketRowColor(row as CapturedPacket);
+
                             return (
                                 <div
                                     key={virtualRow.index}
-                                    className="absolute w-full flex border-b hover:bg-muted/50 cursor-pointer"
+                                    className={`absolute w-full flex border-b hover:bg-muted/50 cursor-pointer transition-colors ${rowColorClass}`}
                                     style={{
                                         height: `${virtualRow.size}px`,
                                         transform: `translateY(${virtualRow.start}px)`,

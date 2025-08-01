@@ -162,6 +162,10 @@ export default function CapturePage() {
           <StopCircle className="w-4 h-4 mr-2" />
           Stop
         </Button>
+        {/* Packet count indicator */}
+        <div className="px-4 py-4 text-sm">
+          Total Packets: {totalPackets}
+        </div>
         <Input
           placeholder="Filter (e.g., tcp.port == 443)"
           className="w-64 ml-auto"
@@ -196,11 +200,6 @@ export default function CapturePage() {
                   hexDump={hexDump}
                 />
               </Suspense>
-
-              {/* Packet count indicator */}
-              <div className="px-4 py-2 border-t">
-                Total Packets: {totalPackets}
-              </div>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>  

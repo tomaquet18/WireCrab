@@ -45,6 +45,7 @@ func StartTsharkLive(device string) (*TsharkLive, error) {
 		"-T", "fields", // fields output
 		"-E", "separator=|",
 		"-e", "frame.number",
+		"-e", "frame.time",
 		"-e", "_ws.col.protocol",
 		"-e", "ip.src",
 		"-e", "ip.dst",
@@ -112,19 +113,20 @@ func (t *TsharkLive) Next() (*ProtocolInfo, error) {
 
 	// Split the line using pipe separator
 	fields := strings.Split(strings.TrimSpace(line), "|")
-	if len(fields) < 6 {
+	if len(fields) < 7 {
 		return nil, fmt.Errorf("invalid number of fields")
 	}
 
 	// Create a ProtocolInfo with the fields
 	return &ProtocolInfo{
-		Name: fields[1], // protocol
+		Name: fields[2], // protocol
 		Detail: map[string]any{
 			"frame.number": map[string]any{"value": fields[0]},
-			"ip.src":       map[string]any{"value": fields[2]},
-			"ip.dst":       map[string]any{"value": fields[3]},
-			"frame.len":    map[string]any{"value": fields[4]},
-			"_ws.col.info": map[string]any{"value": fields[5]},
+			"timestamp":    map[string]any{"value": fields[1]},
+			"ip.src":       map[string]any{"value": fields[3]},
+			"ip.dst":       map[string]any{"value": fields[4]},
+			"frame.len":    map[string]any{"value": fields[5]},
+			"_ws.col.info": map[string]any{"value": fields[6]},
 		},
 		Child: nil,
 	}, nil

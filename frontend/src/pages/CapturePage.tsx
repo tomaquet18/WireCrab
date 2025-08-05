@@ -19,6 +19,7 @@ export default function CapturePage() {
   const [selectedPacketDetails, setSelectedPacketDetails] = useState<any>(null);
   const [hexDump, setHexDump] = useState<string>("");
   const [isStarted, setIsStarted] = useState(false);
+  const [selectedPacketId, setSelectedPacketId] = useState<number | undefined>();
   const interfaceName = useInterfaceStore((s) => s.selected)
 
   const columns: Column<CapturedPacket>[] = [
@@ -136,6 +137,8 @@ export default function CapturePage() {
     const frameNumber = packet.parsed?.Detail?.["frame.number"]?.value;
     if (!frameNumber) return;
 
+    setSelectedPacketId(parseInt(frameNumber));
+
     try {
       const details = await GetPacketDetails(parseInt(frameNumber));
       setSelectedPacketDetails(details.Info);
@@ -184,6 +187,7 @@ export default function CapturePage() {
                   data={packets}
                   columns={columns}
                   onRowClick={handlePacketClick}
+                  selectedPacketId={selectedPacketId}
                 />
               </div>
             </div>

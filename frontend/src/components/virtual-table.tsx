@@ -18,6 +18,7 @@ interface VirtualTableProps<T> {
     data: T[];
     columns: Column<T>[];
     onRowClick?: (row: T) => void;
+    selectedPacketId?: number;
 }
 
 function getPacketRowColor(packet: CapturedPacket) {
@@ -44,7 +45,7 @@ function getPacketRowColor(packet: CapturedPacket) {
     }
 }
 
-export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps<T>) {
+export function VirtualTable<T>({ data, columns, onRowClick, selectedPacketId }: VirtualTableProps<T>) {
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [columnWidths, setColumnWidths] = React.useState<number[]>(
         columns.map((col) => col.width)
@@ -108,11 +109,14 @@ export function VirtualTable<T>({ data, columns, onRowClick }: VirtualTableProps
                         {virtualizer.getVirtualItems().map((virtualRow) => {
                             const row = data[virtualRow.index];
                             const rowColorClass = getPacketRowColor(row as CapturedPacket);
+                            const isSelected = (row as CapturedPacket).parsed?.Detail?.["frame.number"]?.value === selectedPacketId?.toString();
 
                             return (
                                 <div
                                     key={virtualRow.index}
-                                    className={`absolute w-full flex border-b hover:bg-muted/50 cursor-pointer transition-colors ${rowColorClass}`}
+                                    className={`absolute w-full flex border-b hover:bg-muted/50 cursor-pointer transition-colors
+                                        ${rowColorClass}
+                                        ${isSelected ? 'ring-2 ring-blue-200 ring-inset bg-blue-100/50' : ''}`}
                                     style={{
                                         height: `${virtualRow.size}px`,
                                         transform: `translateY(${virtualRow.start}px)`,
